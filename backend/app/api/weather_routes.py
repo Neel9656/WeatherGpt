@@ -1,4 +1,5 @@
 from datetime import datetime
+import traceback
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -51,8 +52,16 @@ async def weather_overview(latitude: float = Query(..., ge=-90, le=90), longitud
         alerts_payload = detect_alerts("Selected location", normalized_current, normalized_hourly, normalized_daily)
         return {"location": {"latitude": latitude, "longitude": longitude, "timezone": data.get("timezone", "auto")},
                 "current": current_payload, "hourly": hourly, "daily": daily, "alerts": alerts_payload}
-    except (OpenMeteoError, KeyError, TypeError, ValueError, IndexError) as exc:
-        raise HTTPException(status_code=502, detail="Unable to retrieve weather information. Please try again shortly.") from exc
+    except Exception as exc:
+        print(
+            f"WEATHER_OVERVIEW_ERROR: {type(exc).__name__}: {exc}",
+            flush=True,
+        )
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to retrieve weather information. Please try again shortly.",
+        ) from exc
 
 
 @router.get("/weather", response_model=WeatherResponse)
