@@ -17,9 +17,35 @@ export default function Home() {
   const [error, setError] = useState('')
 
   function handleLocationSelect(nextLocation) {
-    if (!nextLocation || !Number.isFinite(Number(nextLocation.latitude)) || !Number.isFinite(Number(nextLocation.longitude))) return
-    setLocation({ ...nextLocation, latitude: Number(nextLocation.latitude), longitude: Number(nextLocation.longitude), name: nextLocation.name || 'Your GPS location' })
+  if (
+    !nextLocation ||
+    !Number.isFinite(Number(nextLocation.latitude)) ||
+    !Number.isFinite(Number(nextLocation.longitude))
+  ) {
+    return
   }
+
+  const latitude = Number(nextLocation.latitude)
+  const longitude = Number(nextLocation.longitude)
+
+  setLocation((previousLocation) => {
+    // Do not reload weather if this is the same location
+    if (
+      previousLocation &&
+      previousLocation.latitude === latitude &&
+      previousLocation.longitude === longitude
+    ) {
+      return previousLocation
+    }
+
+    return {
+      ...nextLocation,
+      latitude,
+      longitude,
+      name: nextLocation.name || 'Your GPS location',
+    }
+  })
+}
   useEffect(() => {
     let cancelled = false
     if (!location) {
