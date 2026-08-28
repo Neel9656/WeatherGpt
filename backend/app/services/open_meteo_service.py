@@ -14,25 +14,49 @@ class OpenMeteoService:
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
         self.client = client
 
-    async def _get(self, url: str, params: dict[str, Any]) -> dict[str, Any]:
+    async def _get(
+        self,
+        url: str,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
         last_error: Exception | None = None
+
         for attempt in range(2):
             try:
                 if self.client:
                     response = await self.client.get(url, params=params)
                 else:
-                    async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
+                    async with httpx.AsyncClient(
+                        timeout=settings.request_timeout_seconds,
+                        follow_redirects=True,
+                    ) as client:
                         response = await client.get(url, params=params)
+
                 response.raise_for_status()
                 data = response.json()
+
                 if not isinstance(data, dict):
-                    raise OpenMeteoError("Open-Meteo returned an unexpected response.")
+                    raise OpenMeteoError(
+                        f"Unexpected Open-Meteo response type: {type(data)}"
+                    )
+
                 return data
-            except (httpx.HTTPError, ValueError, OpenMeteoError) as exc:
+
+            except Exception as exc:
                 last_error = exc
+                print(
+                    f"OPEN_METEO_ERROR attempt={attempt + 1}: "
+                    f"{type(exc).__name__}: {exc}",
+                    flush=True,
+                )
+
                 if attempt == 0:
-                    await asyncio.sleep(0.25)
-        raise OpenMeteoError("Open-Meteo is unavailable or returned invalid data.") from last_error
+                    await asyncio.sleep(0.5)
+
+        raise OpenMeteoError(
+            f"Open-Meteo request failed: "
+            f"{type(last_error).__name__}: {last_error}"
+        ) from last_error
 
     async def get_current_weather(self, latitude: float, longitude: float) -> dict[str, Any]:
         params = {
