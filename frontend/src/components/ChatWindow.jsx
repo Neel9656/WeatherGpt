@@ -6,11 +6,11 @@ import { sendChat } from '../services/api'
 
 const historyLimit = 10
 
-export default function ChatWindow({ location, currentWeather, forecast, onLocationResolved }) {
+export default function ChatWindow({ location, currentWeather, forecast }) {
   const chatLogRef = useRef(null)
+  const previousLocationKey = useRef(null)
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState(() => [{ id: crypto.randomUUID(), role: 'assistant', text: `Hi! I can help with weather in ${location?.name || 'your location'}. Ask about rain, travel, heat, or what to expect later today.`, risks: [] }])
-  const [activeLocation, setActiveLocation] = useState(location)
   const [error, setError] = useState('')
   const [language, setLanguage] = useState('en')
   const [sending, setSending] = useState(false)
@@ -34,7 +34,19 @@ export default function ChatWindow({ location, currentWeather, forecast, onLocat
   }
 
   useEffect(() => setPromptSuggestions(buildSuggestions()), [currentWeather])
-  useEffect(() => setActiveLocation(location), [location])
+
+  useEffect(() => {
+    const locationKey = location ? `${location.latitude},${location.longitude}` : null
+    if (previousLocationKey.current !== null && previousLocationKey.current !== locationKey) {
+      setMessages([{
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        text: `Hi! I can help with weather in ${location?.name || 'your location'}. Ask about rain, travel, heat, or what to expect later today.`,
+        risks: [],
+      }])
+    }
+    previousLocationKey.current = locationKey
+  }, [location?.latitude, location?.longitude, location?.name])
 
   useEffect(() => {
     chatLogRef.current?.scrollTo({ top: chatLogRef.current.scrollHeight, behavior: 'smooth' })
@@ -58,7 +70,7 @@ export default function ChatWindow({ location, currentWeather, forecast, onLocat
           ? `Weather for: ${item.location.name}\n${item.text}`
           : item.text,
       }))
-      const response = await sendChat(trimmedQuestion, language, activeLocation, history)
+      const response = await sendChat(trimmedQuestion, language, location, history)
       const answer = typeof response.answer === 'string' && response.answer.trim() ? response.answer : 'WeatherGPT returned an invalid answer. Please try again.'
       const risks = Array.isArray(response.alerts) ? response.alerts : (Array.isArray(response.risks) ? response.risks : [])
       setMessages([...nextMessages, {
@@ -69,8 +81,6 @@ export default function ChatWindow({ location, currentWeather, forecast, onLocat
         agricultureAdvisory: response.agriculture_advisory,
         fallback: !response.llm_available,
       }])
-      if (response.resolved_location) setActiveLocation(response.resolved_location)
-      if (response.resolved_location) onLocationResolved?.(response.resolved_location)
       setPromptSuggestions(buildSuggestions(liveCurrent, trimmedQuestion))
     } catch (requestError) {
       setError(requestError.message || 'The weather service returned an error.')

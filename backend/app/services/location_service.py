@@ -1,6 +1,7 @@
 from typing import Any
 
 import httpx
+import json
 
 from app.config import settings
 from app.services.open_meteo_service import (
@@ -22,12 +23,16 @@ def normalize_location_query(query: str) -> str:
     return " ".join(query.strip().casefold().split())
 
 
+def _json_utf8(response: httpx.Response) -> Any:
+    return json.loads(response.content.decode("utf-8"))
+
+
 async def _search_nominatim(query: str) -> list[dict[str, Any]]:
     try:
         async with httpx.AsyncClient(timeout=settings.request_timeout_seconds, headers={"User-Agent": "WeatherGPT/1.0"}) as client:
             response = await client.get("https://nominatim.openstreetmap.org/search", params={"q": query, "format": "jsonv2", "limit": 10, "addressdetails": 1})
             response.raise_for_status()
-            results = response.json()
+            results = _json_utf8(response)
         normalized = []
         for item in results if isinstance(results, list) else []:
             address = item.get("address", {})
@@ -43,7 +48,7 @@ async def resolve_display_location(latitude: float, longitude: float, fallback_n
         async with httpx.AsyncClient(timeout=settings.request_timeout_seconds, headers={"User-Agent": "WeatherGPT/1.0"}) as client:
             response = await client.get("https://nominatim.openstreetmap.org/reverse", params={"lat": latitude, "lon": longitude, "format": "jsonv2", "zoom": 10})
             response.raise_for_status()
-            address = response.json().get("address", {})
+            address = _json_utf8(response).get("address", {})
         name = address.get("city") or address.get("town") or address.get("village") or address.get("state")
         if name:
             name = name.removesuffix(" Municipal Corporation").strip()

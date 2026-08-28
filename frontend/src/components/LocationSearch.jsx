@@ -37,26 +37,31 @@ export default function LocationSearch({ onSelect }) {
 
     setGeoLoading(true)
     setError('')
+    const requestId = ++requestIdRef.current
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords
         try {
           const resolved = await resolveCoordinates(latitude, longitude)
-          onSelect(resolved)
-          setQuery(resolved.name || 'Your GPS location')
-          setResults([])
+          if (requestId === requestIdRef.current) {
+            onSelect(resolved)
+            setQuery(resolved.name || 'Your GPS location')
+            setResults([])
+          }
         } catch (error) {
-          setError(error.message)
+          if (requestId === requestIdRef.current) setError(error.message)
         } finally {
-          setGeoLoading(false)
+          if (requestId === requestIdRef.current) setGeoLoading(false)
         }
       },
       () => {
-        setGeoLoading(false)
-        setError('Location access was denied. Try a city search instead.')
+        if (requestId === requestIdRef.current) {
+          setGeoLoading(false)
+          setError('Location access was denied. Try a city search instead.')
+        }
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     )
   }
 
