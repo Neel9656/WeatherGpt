@@ -78,6 +78,7 @@ export default function ChatWindow({ location, currentWeather, forecast }) {
         location: response.resolved_location || response.location,
         weather: response.weather || null,
         timePeriod: response.time_period || 'current',
+        weekendForecasts: response.weekend_forecasts || [],
         agricultureAdvisory: response.agriculture_advisory,
         fallback: !response.llm_available,
       }])

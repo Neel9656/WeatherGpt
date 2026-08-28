@@ -168,6 +168,17 @@ def _detect_current_intent(message: str) -> WeatherIntent:
     text = message.strip()
     lowered = text.lower()
 
+    if re.search(r"\b(weekend|this weekend|next weekend|saturday|sunday)\b", lowered):
+        return WeatherIntent(
+            intent="forecast",
+            domain="general",
+            location=_extract_location(text),
+            date_reference="weekend",
+            time_reference="weekend",
+            requires_forecast=True,
+            language=_detect_language(text),
+        )
+
     is_tomorrow_rain = bool(re.search(r"(?:tomorrow|kal|कल|ଆସନ୍ତାକାଲି|କାଲି|আগামীকাল|কাল).*(?:rain|baarish|barish|rainfall|बारिश|ବର୍ଷା|বৃষ্টি)|(?:rain|baarish|barish|rainfall|बारिश|ବର୍ଷା|বৃষ্টি).*(?:tomorrow|kal|कल|ଆସନ୍ତାକାଲି|କାଲି|আগামীকাল|কাল)", lowered))
     is_today_rain = bool(re.search(r"(?:today|aaj|आज|ଆଜି|আজ).*(?:rain|baarish|barish|rainfall|बारिश|ବର୍ଷା|বৃষ্টি)|(?:rain|baarish|barish|rainfall|बारिश|ବର୍ଷା|বৃষ্টি).*(?:today|aaj|आज|ଆଜି|আজ)", lowered))
     if is_tomorrow_rain and "evening" not in lowered and "afternoon" not in lowered and "morning" not in lowered:

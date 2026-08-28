@@ -5,7 +5,10 @@ function finiteNumber(value) {
 
 function ForecastSnapshot({ forecast, timePeriod }) {
   if (!forecast) return null
-  const label = timePeriod === 'day_after_tomorrow' ? 'Day after tomorrow' : timePeriod === 'tomorrow' ? 'Tomorrow' : 'Today'
+  const weekendLabel = timePeriod === 'weekend' && forecast.date
+    ? new Date(`${forecast.date}T12:00:00`).toLocaleDateString([], { weekday: 'long' })
+    : null
+  const label = weekendLabel || (timePeriod === 'day_after_tomorrow' ? 'Day after tomorrow' : timePeriod === 'tomorrow' ? 'Tomorrow' : 'Today')
   return <div className="inline-current-weather">
     <strong>{label}</strong><small>{forecast.date}</small>
     <div className="weather-details"><span>High {finiteNumber(forecast.temperature_max) ?? '—'}°C</span><span>Low {finiteNumber(forecast.temperature_min) ?? '—'}°C</span></div>
@@ -37,11 +40,12 @@ export default function ChatMessage({ message, risks = [] }) {
   }
   const weather = message.weather || {}
   const forecast = weather.selected_forecast || message.selectedForecast
+  const weekendForecasts = weather.weekend_forecasts || message.weekendForecasts || []
   return <div className={`chat-message ${message.role}`}>
     <span className="message-label">{message.role === 'user' ? 'You' : 'WeatherGPT'}</span>
     {message.role === 'assistant' && message.location?.name && <small className="resolved-location">Weather for: {message.location.name}</small>}
     <p>{text}</p>
-    {message.role === 'assistant' && message.timePeriod === 'current' ? <CurrentSnapshot current={weather.current} /> : message.role === 'assistant' && <ForecastSnapshot forecast={forecast} timePeriod={message.timePeriod} />}
+    {message.role === 'assistant' && message.timePeriod === 'current' ? <CurrentSnapshot current={weather.current} /> : message.role === 'assistant' && message.timePeriod === 'weekend' ? weekendForecasts.map((item) => <ForecastSnapshot key={item.date} forecast={item} timePeriod="weekend" />) : message.role === 'assistant' && <ForecastSnapshot forecast={forecast} timePeriod={message.timePeriod} />}
     {message.role === 'assistant' && risks.length > 0 && <div className="message-risks">{risks.map((risk, index) => <div key={risk.id || `${risk.type}-${index}`} className={`risk-badge risk-${risk.severity}`}><strong>{risk.title || risk.type?.replaceAll('_', ' ') || 'Forecast risk'}</strong><br />{risk.message || 'WeatherGPT identified a forecast risk.'}</div>)}</div>}
   </div>
 }

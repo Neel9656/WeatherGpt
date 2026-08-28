@@ -60,6 +60,19 @@ def select_forecast(daily: list[dict[str, Any]], reference: str | None, current_
     return next((item for item in daily if item["date"] == date), None) if date else daily[0]
 
 
+def select_weekend_forecasts(daily: list[dict[str, Any]], current_data: dict[str, Any]) -> list[dict[str, Any]]:
+    if not daily:
+        return []
+    try:
+        current_date = datetime.fromisoformat(str(current_data["current"]["time"]).replace("Z", "+00:00")).date()
+    except (KeyError, TypeError, ValueError):
+        current_date = datetime.now().date()
+    days_until_saturday = (5 - current_date.weekday()) % 7
+    saturday = current_date + timedelta(days=days_until_saturday)
+    weekend_dates = {saturday.isoformat(), (saturday + timedelta(days=1)).isoformat()}
+    return [item for item in daily if item.get("date") in weekend_dates]
+
+
 def _name(value: Any) -> str | None:
     return value.name if hasattr(value, "name") else value
 
@@ -137,8 +150,14 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
             hourly = build_hourly_context(await open_meteo_service.get_hourly_forecast(latitude, longitude))
             agriculture_result = agriculture_advisory(parsed.intent, hourly, daily, target_date(parsed.date_reference, current_data), parsed.time_reference, parsed.crop)
 
-        selected_forecast = select_forecast(daily, parsed.date_reference, current_data)
+        weekend_forecasts = select_weekend_forecasts(daily, current_data) if parsed.date_reference == "weekend" else []
+        selected_forecast = weekend_forecasts[0] if weekend_forecasts else select_forecast(daily, parsed.date_reference, current_data)
         context = question_weather_context(location, current, selected_forecast, parsed.date_reference)
+        if weekend_forecasts:
+            context += "\nWEEKEND FORECASTS:\n" + "\n".join(
+                f"{item['date']}: {item['description']}, high {item['temperature_max']} C, low {item['temperature_min']} C, rain probability {item['precipitation_probability']}%, precipitation {item['precipitation_sum']} mm"
+                for item in weekend_forecasts
+            )
         language = request.language or parsed.language or "en"
         answer = ""
         llm_available = False
@@ -151,8 +170,10 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
                 llm_available = True
             except (LLMError, TypeError):
                 answer = ""
-        if not answer:
-            answer = agriculture_result["answer"] if agriculture_result else grounded_weather_answer(language, location["name"], request.message, current, daily, fallback_intent(parsed), selected_forecast, parsed.date_reference)
+        if parsed.date_reference == "weekend" and weekend_forecasts:
+            answer = grounded_weather_answer(language, location["name"], request.message, current, daily, "forecast", selected_forecast, "weekend", weekend_forecasts)
+        elif not answer:
+            answer = agriculture_result["answer"] if agriculture_result else grounded_weather_answer(language, location["name"], request.message, current, daily, fallback_intent(parsed), selected_forecast, parsed.date_reference, weekend_forecasts)
         elif agriculture_result:
             answer += f"\n\n{agriculture_result['answer']}"
         if location["location_type"] == "region":
@@ -161,7 +182,7 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
             answer += f"\n\n{advisory_guidance(request.audience, daily)}"
 
         risks = [{**risk, "title": risk["type"].replace("_", " ").title(), "official": False, "source": "Forecast-based advisory"} for risk in detect_weather_risks(daily)]
-        result = {"success": True, "answer": answer, "language": language, "llm_available": llm_available, "location": location, "resolved_location": location, "intent": parsed.model_dump(), "time_period": parsed.date_reference, "weather": {"current": current, "forecast": daily, "selected_forecast": selected_forecast}, "forecast": selected_forecast, "selected_forecast": selected_forecast, "weather_context": context, "daily_forecast": selected_forecast, "alerts": risks, "risks": risks, "source": "Open-Meteo forecast data", "agriculture_advisory": agriculture_result}
+        result = {"success": True, "answer": answer, "language": language, "llm_available": llm_available, "location": location, "resolved_location": location, "intent": parsed.model_dump(), "time_period": parsed.date_reference, "weather": {"current": current, "forecast": daily, "selected_forecast": selected_forecast, "weekend_forecasts": weekend_forecasts}, "forecast": selected_forecast, "selected_forecast": selected_forecast, "weekend_forecasts": weekend_forecasts, "weather_context": context, "daily_forecast": selected_forecast, "alerts": risks, "risks": risks, "source": "Open-Meteo forecast data", "agriculture_advisory": agriculture_result}
         try:
             save_chat(request.message, answer, request.audience, location["name"])
         except Exception:

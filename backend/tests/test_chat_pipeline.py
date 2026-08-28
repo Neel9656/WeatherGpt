@@ -41,6 +41,9 @@ def test_weekend_forecast_keeps_active_location(monkeypatch):
     assert response.status_code == 200
     assert response.json()["location"]["name"] == "Bhubaneswar"
     assert response.json()["time_period"] == "weekend"
+    assert [item["date"] for item in response.json()["weekend_forecasts"]] == ["2026-08-29", "2026-08-30"]
+    assert "2026-08-29" in response.json()["answer"]
+    assert "2026-08-30" in response.json()["answer"]
 
 
 def test_generic_coordinates_get_real_display_name(monkeypatch):

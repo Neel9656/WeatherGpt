@@ -49,6 +49,7 @@ def grounded_weather_answer(
     intent: str = "rain_today",
     selected_forecast: dict[str, Any] | None = None,
     time_period: str | None = None,
+    weekend_forecasts: list[dict[str, Any]] | None = None,
 ) -> str:
     """Return a response from the route's already selected verified forecast."""
     legacy_date_guess = selected_forecast is None and time_period is None and any(token in question.casefold() for token in ("tomorrow", "kal", "আগামীকাল", "ଆସନ୍ତାକାଲି"))
@@ -61,6 +62,12 @@ def grounded_weather_answer(
         "bn": {"today": "আজ", "tomorrow": "আগামীকাল", "day_after_tomorrow": "পরশু"},
         "or": {"today": "ଆଜି", "tomorrow": "ଆସନ୍ତାକାଲି", "day_after_tomorrow": "ପରଦିନ"},
     }.get(language, {}).get(effective_period, period)
+    if effective_period == "weekend" and weekend_forecasts:
+        days = " while ".join(
+            f"{item.get('date')} is expected to have {item.get('description')} with a {item.get('precipitation_probability')}% rain probability and about {item.get('precipitation_sum')} mm expected"
+            for item in weekend_forecasts
+        )
+        return f"This weekend in {location}, {days}."
     probability = forecast.get("precipitation_probability")
     rain = forecast.get("precipitation_sum")
     if probability is None or rain is None:

@@ -27,8 +27,21 @@ export default function VoiceInput({ value, onChange, language = 'en-IN' }) {
       }
     }
 
+    recognition.onstart = () => {
+      setListening(true)
+      setUnsupportedMessage('')
+    }
     recognition.onend = () => setListening(false)
-    recognition.onerror = () => setListening(false)
+    recognition.onerror = (event) => {
+      setListening(false)
+      const messages = {
+        'not-allowed': 'Microphone permission was denied. Allow access and try again.',
+        'service-not-allowed': 'Microphone permission was denied. Allow access and try again.',
+        'audio-capture': 'No microphone was found. Check your device and try again.',
+        network: 'Voice recognition is unavailable right now. Please try again.',
+      }
+      setUnsupportedMessage(messages[event.error] || 'Voice input could not start. Please try again.')
+    }
 
     recognitionRef.current = recognition
     return () => {
@@ -49,9 +62,13 @@ export default function VoiceInput({ value, onChange, language = 'en-IN' }) {
     }
 
     recognitionRef.current.lang = language
-    recognitionRef.current.start()
-    setListening(true)
-    setUnsupportedMessage('')
+    try {
+      recognitionRef.current.start()
+    } catch (error) {
+      if (error.name !== 'InvalidStateError') {
+        setUnsupportedMessage('Voice input could not start. Please try again.')
+      }
+    }
   }
 
   return (
