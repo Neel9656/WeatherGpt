@@ -24,7 +24,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. Set `VITE_API_URL` when the backend is hosted somewhere other than `http://127.0.0.1:8000/api`.
+Open `http://localhost:5173`. For deployment, set `VITE_API_URL` to the public backend URL before running the frontend build, for example `https://api.example.com/api`; Vite embeds this value at build time.
 
 ## Endpoints
 
@@ -34,6 +34,7 @@ GET  /api/location?query=...   Open-Meteo geocoding
 GET  /api/weather?latitude=...&longitude=...  current weather
 GET  /api/forecast?latitude=...&longitude=...&forecast_type=hourly|daily
 GET  /api/alerts?latitude=...&longitude=...  WeatherGPT forecast risk assessments
+GET  /api/weather/overview?latitude=...&longitude=...  bundled current, hourly, daily, and risk data
 POST /api/chat                  grounded weather chat and advisory response
 ```
 

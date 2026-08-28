@@ -28,6 +28,10 @@ export function getCurrentWeather(latitude, longitude) {
   return request(`/weather?latitude=${latitude}&longitude=${longitude}`)
 }
 
+export function getWeatherOverview(latitude, longitude) {
+  return request(`/weather/overview?latitude=${latitude}&longitude=${longitude}`)
+}
+
 export function getForecast(latitude, longitude, forecastType = 'daily') {
   return request(`/forecast?latitude=${latitude}&longitude=${longitude}&forecast_type=${forecastType}`)
 }

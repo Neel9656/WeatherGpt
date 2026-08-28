@@ -75,57 +75,41 @@ class OpenMeteoService:
 
             self._last_request_time = time.monotonic()
 
-            try:
-                if self.client:
-                    response = await self.client.get(
-                        url,
-                        params=params,
-                    )
-                else:
-                    async with httpx.AsyncClient(
-                        timeout=settings.request_timeout_seconds,
-                        follow_redirects=True,
-                    ) as client:
-                        response = await client.get(
-                            url,
-                            params=params,
-                        )
+            for attempt in range(3):
+                try:
+                    if self.client:
+                        response = await self.client.get(url, params=params)
+                    else:
+                        async with httpx.AsyncClient(timeout=settings.request_timeout_seconds, follow_redirects=True) as client:
+                            response = await client.get(url, params=params)
 
-                if response.status_code == 429:
-                    raise OpenMeteoError(
-                        "Open-Meteo rate limit reached."
-                    )
+                    if response.status_code == 429 or response.status_code >= 500:
+                        if attempt == 2:
+                            raise OpenMeteoError(f"Open-Meteo returned HTTP {response.status_code}.")
+                        retry_after = response.headers.get("Retry-After")
+                        try:
+                            delay = min(float(retry_after), 8.0) if retry_after else 0.5 * (2 ** attempt)
+                        except ValueError:
+                            delay = 0.5 * (2 ** attempt)
+                        await asyncio.sleep(delay)
+                        continue
 
-                response.raise_for_status()
+                    response.raise_for_status()
+                    data = response.json()
+                    if not isinstance(data, dict):
+                        raise OpenMeteoError("Unexpected Open-Meteo response.")
+                    self._cache[cache_key] = (time.monotonic(), data)
+                    return data
+                except (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError) as exc:
+                    if attempt == 2:
+                        raise OpenMeteoError("Open-Meteo network request failed after retries.") from exc
+                    await asyncio.sleep(0.5 * (2 ** attempt))
+                except OpenMeteoError:
+                    raise
+                except (httpx.HTTPError, ValueError) as exc:
+                    raise OpenMeteoError("Open-Meteo returned an invalid response.") from exc
 
-                data = response.json()
-
-                if not isinstance(data, dict):
-                    raise OpenMeteoError(
-                        "Unexpected Open-Meteo response."
-                    )
-
-                # Save response in cache.
-                self._cache[cache_key] = (
-                    time.monotonic(),
-                    data,
-                )
-
-                return data
-
-            except OpenMeteoError:
-                raise
-
-            except Exception as exc:
-                print(
-                    f"OPEN_METEO_ERROR: "
-                    f"{type(exc).__name__}: {exc}",
-                    flush=True,
-                )
-
-                raise OpenMeteoError(
-                    f"Open-Meteo request failed: {exc}"
-                ) from exc
+            raise OpenMeteoError("Open-Meteo request failed after retries.")
 
     async def _get_weather_bundle(
         self,

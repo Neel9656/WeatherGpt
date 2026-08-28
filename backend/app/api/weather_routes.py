@@ -16,6 +16,45 @@ def _coordinates(latitude: float, longitude: float) -> dict[str, float]:
     return {"latitude": latitude, "longitude": longitude}
 
 
+def _hourly_items(data: dict) -> list[dict]:
+    hourly = data["hourly"]
+    return [{"time": datetime.fromisoformat(time), "temperature": temp, "precipitation": rain,
+             "precipitation_probability": probability, "wind_speed": wind, "weather_code": code,
+             "description": weather_description(code)} for time, temp, rain, probability, wind, code in zip(
+        hourly["time"], hourly["temperature_2m"], hourly["precipitation"], hourly["precipitation_probability"],
+        hourly["wind_speed_10m"], hourly["weather_code"])]
+
+
+def _daily_items(data: dict) -> list[dict]:
+    daily = data["daily"]
+    return [{"date": date, "temperature_max": temp_max, "temperature_min": temp_min,
+             "precipitation_probability": probability, "precipitation_sum": rain, "wind_speed_max": wind,
+             "weather_code": code, "description": weather_description(code)} for date, temp_max, temp_min,
+            probability, rain, wind, code in zip(daily["time"], daily["temperature_2m_max"], daily["temperature_2m_min"],
+                                                 daily["precipitation_probability_max"], daily["precipitation_sum"],
+                                                 daily["wind_speed_10m_max"], daily["weather_code"])]
+
+
+@router.get("/weather/overview")
+async def weather_overview(latitude: float = Query(..., ge=-90, le=90), longitude: float = Query(..., ge=-180, le=180)) -> dict:
+    try:
+        data = await open_meteo_service.get_current_weather(latitude, longitude)
+        current = data["current"]
+        current_payload = {"time": datetime.fromisoformat(current["time"]), "temperature": current["temperature_2m"],
+                           "humidity": current["relative_humidity_2m"], "wind_speed": current["wind_speed_10m"],
+                           "precipitation": current["precipitation"], "pressure": current["surface_pressure"],
+                           "cloud_cover": current["cloud_cover"], "weather_code": current["weather_code"],
+                           "description": weather_description(current["weather_code"])}
+        hourly = _hourly_items(data)
+        daily = _daily_items(data)
+        normalized_current, normalized_hourly, normalized_daily = normalize_alert_inputs(data, data, data)
+        alerts_payload = detect_alerts("Selected location", normalized_current, normalized_hourly, normalized_daily)
+        return {"location": {"latitude": latitude, "longitude": longitude, "timezone": data.get("timezone", "auto")},
+                "current": current_payload, "hourly": hourly, "daily": daily, "alerts": alerts_payload}
+    except (OpenMeteoError, KeyError, TypeError, ValueError, IndexError) as exc:
+        raise HTTPException(status_code=502, detail="Unable to retrieve weather information. Please try again shortly.") from exc
+
+
 @router.get("/weather", response_model=WeatherResponse)
 async def current_weather(
     latitude: float = Query(..., ge=-90, le=90), longitude: float = Query(..., ge=-180, le=180)

@@ -5,7 +5,7 @@ import { DailyCards, HourlyCards } from '../components/ForecastCard'
 import Loading from '../components/Loading'
 import LocationSearch from '../components/LocationSearch'
 import WeatherCard from '../components/WeatherCard'
-import { getAlerts, getCurrentWeather, getForecast, resolveCoordinates } from '../services/api'
+import { getWeatherOverview, resolveCoordinates } from '../services/api'
 
 export default function Home() {
   const [location, setLocation] = useState(null)
@@ -60,17 +60,12 @@ export default function Home() {
       setDaily([])
       setAlerts([])
       try {
-        const [current, hourlyForecast, dailyForecast, detectedAlerts] = await Promise.all([
-          getCurrentWeather(location.latitude, location.longitude),
-          getForecast(location.latitude, location.longitude, 'hourly'),
-          getForecast(location.latitude, location.longitude, 'daily'),
-          getAlerts(location.latitude, location.longitude),
-        ])
+        const overview = await getWeatherOverview(location.latitude, location.longitude)
         if (!cancelled) {
-          setWeather(current)
-          setHourly(Array.isArray(hourlyForecast) ? hourlyForecast : [])
-          setDaily(Array.isArray(dailyForecast) ? dailyForecast : [])
-          setAlerts(Array.isArray(detectedAlerts) ? detectedAlerts : [])
+          setWeather({ current: overview.current })
+          setHourly(Array.isArray(overview.hourly) ? overview.hourly : [])
+          setDaily(Array.isArray(overview.daily) ? overview.daily : [])
+          setAlerts(Array.isArray(overview.alerts) ? overview.alerts : [])
         }
       } catch (loadError) {
         if (!cancelled) setError(loadError.message)
