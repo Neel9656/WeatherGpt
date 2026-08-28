@@ -10,6 +10,47 @@ def test_health_check() -> None:
     assert response.json()["status"] == "ok"
 
 
+def test_weather_overview_uses_service_bundle(monkeypatch) -> None:
+    async def fake_overview(latitude, longitude):
+        return {
+            "timezone": "Asia/Kolkata",
+            "current": {
+                "time": "2026-08-29T12:00",
+                "temperature_2m": 30,
+                "relative_humidity_2m": 70,
+                "wind_speed_10m": 12,
+                "precipitation": 0,
+                "surface_pressure": 1008,
+                "cloud_cover": 10,
+                "weather_code": 0,
+            },
+            "hourly": {
+                "time": ["2026-08-29T12:00"],
+                "temperature_2m": [30],
+                "precipitation": [0],
+                "precipitation_probability": [10],
+                "wind_speed_10m": [12],
+                "weather_code": [0],
+            },
+            "daily": {
+                "time": ["2026-08-29"],
+                "temperature_2m_max": [32],
+                "temperature_2m_min": [25],
+                "precipitation_probability_max": [10],
+                "precipitation_sum": [0],
+                "wind_speed_10m_max": [15],
+                "weather_code": [0],
+            },
+        }
+
+    monkeypatch.setattr(chat_routes.open_meteo_service, "get_weather_overview", fake_overview)
+    response = TestClient(app).get("/api/weather/overview?latitude=20.2961&longitude=85.8245")
+
+    assert response.status_code == 200
+    assert response.json()["current"]["temperature"] == 30
+    assert response.json()["daily"][0]["date"] == "2026-08-29"
+
+
 def test_chat_requires_a_location() -> None:
     response = TestClient(app).post("/api/chat", json={"message": "Weather?"})
     assert response.status_code == 400

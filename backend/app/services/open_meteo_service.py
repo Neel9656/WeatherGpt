@@ -190,48 +190,12 @@ class OpenMeteoService:
             longitude,
         )
 
-async def get_weather_overview(
-    self,
-    latitude: float,
-    longitude: float,
-) -> dict[str, Any]:
-    params = {
-        "latitude": latitude,
-        "longitude": longitude,
+    async def get_weather_overview(
+        self,
+        latitude: float,
+        longitude: float,
+    ) -> dict[str, Any]:
+        return await self._get_weather_bundle(latitude, longitude)
 
-        "current": (
-            "temperature_2m,"
-            "relative_humidity_2m,"
-            "precipitation,"
-            "wind_speed_10m,"
-            "surface_pressure,"
-            "cloud_cover,"
-            "weather_code"
-        ),
 
-        "hourly": (
-            "temperature_2m,"
-            "precipitation,"
-            "precipitation_probability,"
-            "wind_speed_10m,"
-            "weather_code"
-        ),
-
-        "daily": (
-            "temperature_2m_max,"
-            "temperature_2m_min,"
-            "precipitation_probability_max,"
-            "precipitation_sum,"
-            "wind_speed_10m_max,"
-            "weather_code"
-        ),
-
-        "forecast_days": 7,
-        "timezone": "auto",
-    }
-
-    return await self._get(
-        settings.open_meteo_forecast_url,
-        params,
-    )
 open_meteo_service = OpenMeteoService()
