@@ -38,7 +38,7 @@ def _daily_items(data: dict) -> list[dict]:
 @router.get("/weather/overview")
 async def weather_overview(latitude: float = Query(..., ge=-90, le=90), longitude: float = Query(..., ge=-180, le=180)) -> dict:
     try:
-        data = await open_meteo_service.get_current_weather(latitude, longitude)
+        data = await open_meteo_service.get_weather_overview(latitude, longitude)
         current = data["current"]
         current_payload = {"time": datetime.fromisoformat(current["time"]), "temperature": current["temperature_2m"],
                            "humidity": current["relative_humidity_2m"], "wind_speed": current["wind_speed_10m"],
