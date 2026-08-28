@@ -67,10 +67,11 @@ def _name(value: Any) -> str | None:
 async def resolve_location(request: ChatRequest, parsed: WeatherIntent) -> dict[str, Any]:
     selected = request.selected_location
     candidates = extract_location_candidates(request.message, parsed.language)
-    query = parsed.location or _name(selected)
-    if not parsed.location and request.latitude is not None and (not selected or str(_name(selected)).casefold() in {"current location", "your location", "selected location", "unknown location"}):
+    explicit_location = candidates[0] if candidates else None
+    query = explicit_location or _name(selected)
+    if not explicit_location and request.latitude is not None and (not selected or str(_name(selected)).casefold() in {"current location", "your location", "selected location", "unknown location"}):
         return await resolve_display_location(request.latitude, request.longitude, _name(selected))
-    if not parsed.location and hasattr(selected, "latitude"):
+    if not explicit_location and hasattr(selected, "latitude"):
         if selected.name.casefold() in {"current location", "your location", "selected location", "unknown location"}:
             return await resolve_display_location(selected.latitude, selected.longitude, selected.name)
         return {"name": selected.name, "displayName": selected.name, "latitude": selected.latitude, "longitude": selected.longitude, "country": None, "timezone": selected.timezone, "location_type": "dashboard", "type": "city", "source": "selected"}
@@ -78,7 +79,7 @@ async def resolve_location(request: ChatRequest, parsed: WeatherIntent) -> dict[
         return await resolve_display_location(request.latitude, request.longitude)
     if not query:
         raise HTTPException(status_code=400, detail="Please select a location or mention a location in your question.")
-    if candidates:
+    if explicit_location:
         try:
             return await resolve_location_candidates(candidates, searcher=search_locations)
         except OpenMeteoError as exc:

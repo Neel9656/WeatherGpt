@@ -27,6 +27,22 @@ def test_plain_english_tomorrow_uses_tomorrow_forecast(monkeypatch):
     assert "today" not in payload["answer"].lower()
 
 
+def test_weekend_forecast_keeps_active_location(monkeypatch):
+    async def unexpected_location_search(query):
+        raise AssertionError(f"weekend phrase must not be geocoded: {query}")
+
+    monkeypatch.setattr(chat_routes, "search_locations", unexpected_location_search)
+    monkeypatch.setattr(chat_routes.open_meteo_service, "get_current_weather", fake_current)
+    monkeypatch.setattr(chat_routes.open_meteo_service, "get_daily_forecast", fake_daily)
+    response = TestClient(app).post("/api/chat", json={
+        "message": "What is the weekend forecast?",
+        "selected_location": {"name": "Bhubaneswar", "latitude": 20.356, "longitude": 85.819},
+    })
+    assert response.status_code == 200
+    assert response.json()["location"]["name"] == "Bhubaneswar"
+    assert response.json()["time_period"] == "weekend"
+
+
 def test_generic_coordinates_get_real_display_name(monkeypatch):
     async def fake_display_location(latitude, longitude, fallback_name=None):
         return {"name": "Bhubaneswar", "displayName": "Bhubaneswar, Odisha, India", "admin1": "Odisha", "state": "Odisha", "country": "India", "latitude": latitude, "longitude": longitude, "location_type": "city", "type": "city", "source": "gps"}

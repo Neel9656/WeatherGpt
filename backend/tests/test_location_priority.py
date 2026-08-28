@@ -31,5 +31,5 @@ def test_previous_temporary_location_does_not_override_dashboard(monkeypatch) ->
     assert first.status_code == 200
     assert second.status_code == 200
     assert first.json()["location"]["name"] == "Ranchi"
-    assert second.json()["location"]["name"] == "Ranchi"
-    assert locations == ["Ranchi", "Ranchi"]
+    assert second.json()["location"]["name"] == "Bhubaneswar"
+    assert locations == ["Ranchi"]

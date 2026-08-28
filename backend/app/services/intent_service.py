@@ -108,7 +108,7 @@ def extract_location_candidates(message: str, language: str | None = None) -> li
     """Return clean location phrases from the current message only."""
     text = unicodedata.normalize("NFKC", message).strip()
     candidates: list[str] = []
-    noise = r"(?:kya|kal|aaj|parso|today|tomorrow|tonight|now|currently|please|weather|forecast|temperature|rainfall?|storm|wind|humidity|baarish|barish|hoga|hogi|hai|batao|kitna|what|is|the|will|it|be|how|hot|right|there|a|chance|of|possible|likely)"
+    noise = r"(?:kya|kal|aaj|parso|today|tomorrow|tonight|now|currently|please|weather|forecast|temperature|rainfall?|storm|wind|humidity|baarish|barish|hoga|hogi|hai|batao|kitna|what|is|the|will|it|be|how|hot|right|there|a|chance|of|possible|likely|weekend|this|next|later|morning|afternoon|evening|hourly|weekly)"
     patterns = (
         rf"\b(?:in|at|near|around|from|me|mein)\s+([A-Za-z][A-Za-z .'-]*?)(?=\s+(?:{noise})\b|[?.!,]|$)",
         rf"\b([A-Za-z][A-Za-z .'-]*?)\s+(?:in|at|near|around|from|me|mein)\b",

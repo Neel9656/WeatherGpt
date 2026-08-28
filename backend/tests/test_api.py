@@ -242,8 +242,7 @@ def test_chat_natural_farm_location_extracts_kolkata(monkeypatch) -> None:
 
 def test_chat_uses_selected_location_alias_and_recent_history(monkeypatch) -> None:
     async def fake_locations(query):
-        assert query == "Kolkata"
-        return [{"name": "Kolkata", "latitude": 22.5726, "longitude": 88.3639}]
+        raise AssertionError("stale history location must not override selected location")
 
     async def fake_current(latitude, longitude):
         return {"timezone": "Asia/Kolkata", "current": {"time": "2026-08-28T12:00", "temperature_2m": 30, "relative_humidity_2m": 70, "wind_speed_10m": 12, "precipitation": 0, "surface_pressure": 1008, "weather_code": 0}}
@@ -260,5 +259,5 @@ def test_chat_uses_selected_location_alias_and_recent_history(monkeypatch) -> No
         "conversation_history": [{"role": "user", "content": "Will it rain in Kolkata?"}],
     })
     assert response.status_code == 200
-    assert response.json()["location"]["name"] == "Kolkata"
+    assert response.json()["location"]["name"] == "Bhubaneswar"
     assert response.json()["weather"]["selected_forecast"]["date"] == "2026-08-29"
