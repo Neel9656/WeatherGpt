@@ -20,15 +20,6 @@ export default function Home() {
     if (!nextLocation || !Number.isFinite(Number(nextLocation.latitude)) || !Number.isFinite(Number(nextLocation.longitude))) return
     setLocation({ ...nextLocation, latitude: Number(nextLocation.latitude), longitude: Number(nextLocation.longitude), name: nextLocation.name || 'Your GPS location' })
   }
-
-  useEffect(() => {
-    if (!navigator.geolocation) return undefined
-    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-      try { handleLocationSelect(await resolveCoordinates(coords.latitude, coords.longitude)) } catch { return }
-    }, () => {}, { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 })
-    return undefined
-  }, [])
-
   useEffect(() => {
     let cancelled = false
     if (!location) {
