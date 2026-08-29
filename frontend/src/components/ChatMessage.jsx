@@ -10,7 +10,7 @@ function ForecastSnapshot({ forecast, timePeriod }) {
     : null
   const label = weekendLabel || (timePeriod === 'day_after_tomorrow' ? 'Day after tomorrow' : timePeriod === 'tomorrow' ? 'Tomorrow' : 'Today')
   return <div className="inline-current-weather">
-    <strong>{label}</strong><small>{forecast.date}</small>
+    <div className="forecast-header-line"><strong>{label}</strong> <small>{forecast.date}</small></div>
     <div className="weather-details"><span>High {finiteNumber(forecast.temperature_max) ?? '—'}°C</span><span>Low {finiteNumber(forecast.temperature_min) ?? '—'}°C</span></div>
     <div className="weather-desc">{forecast.description || 'Conditions unavailable'}</div>
     <div className="weather-details"><span>Rain {finiteNumber(forecast.precipitation_probability) ?? '—'}%</span><span>{finiteNumber(forecast.precipitation_sum) ?? '—'} mm · {finiteNumber(forecast.wind_speed_max) ?? '—'} km/h wind</span></div>
@@ -33,6 +33,7 @@ export default function ChatMessage({ message, risks = [] }) {
     const window = message.agricultureAdvisory.window || {}
     return <div className="chat-message assistant">
       <span className="message-label">WeatherGPT</span>
+      {' '}
       {message.location?.name && <small className="resolved-location">Weather for: {message.location.name}</small>}
       <p>{text}</p>
       <div className="farm-advisory-card"><div className="farm-advisory-title">Farm weather advisory</div><strong>{window.suitable ? 'Weather conditions appear suitable' : 'Not recommended'}</strong><div className="farm-advisory-metrics"><span>Rain probability <b>{finiteNumber(window.rain_probability) ?? '—'}%</b></span><span>Expected rain <b>{finiteNumber(window.expected_precipitation_mm) ?? '—'} mm</b></span><span>Wind <b>{finiteNumber(window.wind_speed_kmh) ?? '—'} km/h</b></span><span>Temperature <b>{finiteNumber(window.temperature_c) ?? '—'}°C</b></span></div><small>Best weather window: {window.best_window ? `${window.best_window.start} to ${window.best_window.end}` : 'None identified'}</small><small>Follow the pesticide label for product-specific requirements.</small></div>
@@ -43,6 +44,7 @@ export default function ChatMessage({ message, risks = [] }) {
   const weekendForecasts = weather.weekend_forecasts || message.weekendForecasts || []
   return <div className={`chat-message ${message.role}`}>
     <span className="message-label">{message.role === 'user' ? 'You' : 'WeatherGPT'}</span>
+    {' '}
     {message.role === 'assistant' && message.location?.name && <small className="resolved-location">Weather for: {message.location.name}</small>}
     <p>{text}</p>
     {message.role === 'assistant' && message.timePeriod === 'current' ? <CurrentSnapshot current={weather.current} /> : message.role === 'assistant' && message.timePeriod === 'weekend' ? weekendForecasts.map((item) => <ForecastSnapshot key={item.date} forecast={item} timePeriod="weekend" />) : message.role === 'assistant' && <ForecastSnapshot forecast={forecast} timePeriod={message.timePeriod} />}

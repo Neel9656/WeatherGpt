@@ -54,6 +54,22 @@ def detect_language(text: str) -> str:
 _detect_language = detect_language
 
 
+def _looks_like_weather_question(candidate: str) -> bool:
+    normalized = unicodedata.normalize("NFKC", candidate).lower()
+    if not normalized:
+        return False
+    weather_tokens = (
+        "weather", "forecast", "rain", "rainfall", "storm", "temperature", "humidity",
+        "wind", "umbrella", "cloud", "sunny", "hot", "cold", "mausam", "baarish",
+        "barish", "kal", "aaj", "parso", "today", "tomorrow", "tomorrow evening",
+        "this evening", "this afternoon", "morning", "evening", "afternoon", "tonight",
+        "বৃষ্টি", "বর্ষা", "আবহাওয়া", "আবহাওয়া", "কেমন", "তাপমাত্রা", "বাতাস", "হবে",
+        "আজ", "কাল", "আগামীকাল", "পরশু", "ଆଜି", "କାଲି", "ଆସନ୍ତାକାଲି", "ପରଦିନ",
+        "आज", "कल", "परसों", "मौसम", "बारिश", "कैसा", "कैसे", "होगा", "होगी", "किसान",
+    )
+    return any(token in normalized for token in weather_tokens)
+
+
 def _extract_location(text: str) -> str | None:
     normalized = unicodedata.normalize("NFKC", text)
     matches = re.findall(
@@ -63,22 +79,22 @@ def _extract_location(text: str) -> str | None:
     )
     if matches:
         candidate = matches[-1].strip(" .")
-        if candidate.lower() not in {"the weather", "weather", "the forecast", "forecast", "kal", "aaj", "ka", "ki", "ke"}:
+        if candidate.lower() not in {"the weather", "weather", "the forecast", "forecast", "kal", "aaj", "ka", "ki", "ke"} and not _looks_like_weather_question(candidate):
             return candidate
     roman_location = re.search(r"\b([A-Za-z][A-Za-z .'-]{1,80}?)\s+(?:me|mein)\b", normalized, re.IGNORECASE)
     if roman_location:
         candidate = roman_location.group(1).split()[-1].strip(" .")
-        if candidate.casefold() not in {"kal", "aaj", "parso", "weather", "mausam"}:
+        if candidate.casefold() not in {"kal", "aaj", "parso", "weather", "mausam"} and not _looks_like_weather_question(candidate):
             return candidate
     mixed_script = re.search(r"\b([A-Za-z][A-Za-z .'-]{1,80}?)\s+(?:में|ରେ|এ|তে)(?:\s|$|[?.!,])", normalized, re.IGNORECASE)
     if mixed_script:
         candidate = mixed_script.group(1).strip(" .")
-        if candidate.lower() not in {"kal", "aaj", "parso", "weather", "mausam"}:
+        if candidate.lower() not in {"kal", "aaj", "parso", "weather", "mausam"} and not _looks_like_weather_question(candidate):
             return candidate
     colloquial = re.search(r"\b([A-Za-z][A-Za-z .'-]{2,60})\s+(?:ka|ki|ke)\s+(?:weather|mausam)\b", normalized, re.IGNORECASE)
     if colloquial:
         candidate = colloquial.group(1).strip(" .")
-        if candidate.lower() not in {"kal", "aaj", "parso", "weather", "mausam"}:
+        if candidate.lower() not in {"kal", "aaj", "parso", "weather", "mausam"} and not _looks_like_weather_question(candidate):
             return candidate
     for pattern in (
         r"([\u0980-\u09FF][\u0980-\u09FF\s]{1,40}?)(?:য়|য়|তে|এ)",
@@ -88,7 +104,7 @@ def _extract_location(text: str) -> str | None:
         match = re.search(pattern, normalized)
         if match and match.group(1).strip():
             candidate = re.sub(r"^(?:আজ|কাল|আগামীকাল|পরশু|ଆଜି|କାଲି|ଆସନ୍ତାକାଲି|ପରଦିନ|आज|कल|परसों)\s+", "", match.group(1).strip())
-            if candidate:
+            if candidate and not _looks_like_weather_question(candidate):
                 return {"কলকাতা": "Kolkata"}.get(candidate, candidate)
     script_locations = {
         "কলকাতা": "Kolkata", "কলকাতায়": "Kolkata", "কলকাতায়": "Kolkata",
@@ -115,13 +131,16 @@ def extract_location_candidates(message: str, language: str | None = None) -> li
         rf"^\s*([A-Za-z][A-Za-z .'-]*?)\s+(?:weather|forecast|temperature|rain|wind)\b",
         rf"\b(?:weather|forecast|temperature|rain|wind)\s+([A-Za-z][A-Za-z .'-]*?)(?=\s+(?:{noise})\b|[?.!,]|$)",
     )
+    question_fragment = re.compile(r"^(?:should|could|would|can|will|what|how|is|are|do|does|i|we|please|plan|travel|around|the|this|next|week|weekend|today|tomorrow|later|morning|afternoon|evening|hourly|weekly|forecast|weather|rain|wind|temperature|humidity)\b", re.IGNORECASE)
     for pattern in patterns:
         for match in re.finditer(pattern, text, re.IGNORECASE):
             candidate = match.group(1).strip(" .,'?-")
-            candidate = re.sub(rf"^(?:{noise}|in|at|near|around|from|me|mein)\s+", "", candidate, flags=re.IGNORECASE).strip()
+            candidate = re.sub(rf"^(?:{noise}|in|at|near|around|from|for|me|mein)\s+", "", candidate, flags=re.IGNORECASE).strip()
+            if _looks_like_weather_question(candidate):
+                continue
             candidate_words = candidate.casefold().split()
             noise_words = set(re.findall(r"[a-z]+", noise.casefold()))
-            if candidate and candidate_words and not all(word in noise_words for word in candidate_words):
+            if candidate and candidate_words and not all(word in noise_words for word in candidate_words) and not question_fragment.match(candidate):
                 candidates.append(candidate)
 
     script_patterns = (
@@ -132,7 +151,7 @@ def extract_location_candidates(message: str, language: str | None = None) -> li
     for pattern in script_patterns:
         for match in re.finditer(pattern, text):
             candidate = re.sub(r"^(?:क्या|कल|आज|परसों|আজ|কাল|আগামীকাল|পরশু|ଆଜି|କାଲି|ଆସନ୍ତାକାଲି|ପରଦିନ)\s+", "", match.group(1).strip())
-            if candidate:
+            if candidate and not _looks_like_weather_question(candidate):
                 candidates.append(candidate)
 
     extracted = _extract_location(text)

@@ -67,6 +67,35 @@ def test_multilingual_fallback_uses_verified_values():
     assert any("ବର୍ଷା" in answer for answer in answers)
 
 
+def test_bengali_response_keeps_period_and_location_separated():
+    current = {"temperature": 30, "humidity": 70, "wind_speed": 12, "description": "Clear sky"}
+    forecast = {"date": "2026-08-29", "description": "Light rain", "temperature_max": 32, "temperature_min": 26, "precipitation_probability": 92, "precipitation_sum": 18, "wind_speed_max": 20}
+    answer = grounded_weather_answer("bn", "Bhubaneswar", "কালকে কেমন বৃষ্টি হবে?", current, [forecast], "rain_tomorrow", forecast, "tomorrow")
+    assert "আগামীকাল Bhubaneswar-এ" in answer
+    assert "বৃষ্টির সম্ভাবনা 92%" in answer
+    assert "মিমি" in answer
+    assert "Bhubaneswar-এবৃষ্টির" not in answer
+
+
+def test_travel_answer_is_decision_first_and_plain_language():
+    current = {"temperature": 30, "humidity": 70, "wind_speed": 12, "description": "Thunderstorm"}
+    forecast = {"date": "2026-08-29", "description": "Thunderstorm", "temperature_max": 32, "temperature_min": 26, "precipitation_probability": 92, "precipitation_sum": 18, "wind_speed_max": 20}
+    answer = grounded_weather_answer("en", "Bhubaneswar", "Can I travel tomorrow?", current, [forecast], "travel_advisory", forecast, "tomorrow")
+    assert answer.lstrip().startswith("⚠️")
+    assert "travel" in answer.lower()
+    assert "caution" in answer.lower() or "avoid" in answer.lower()
+    assert "rain is very likely" in answer.lower() or "rain is likely" in answer.lower()
+
+
+def test_bengali_travel_answer_keeps_decision_first_structure():
+    current = {"temperature": 30, "humidity": 70, "wind_speed": 12, "description": "Thunderstorm"}
+    forecast = {"date": "2026-08-29", "description": "Thunderstorm", "temperature_max": 32, "temperature_min": 26, "precipitation_probability": 92, "precipitation_sum": 18, "wind_speed_max": 20}
+    answer = grounded_weather_answer("bn", "Bhubaneswar", "কালকে ভ্রমণ করা যাবে?", current, [forecast], "travel_advisory", forecast, "tomorrow")
+    assert answer.lstrip().startswith("⚠️") or answer.lstrip().startswith("☔") or answer.lstrip().startswith("🟡")
+    assert "ভ্রমণ" in answer or "যাতে" in answer
+    assert "বৃষ্ট" in answer
+
+
 def test_dynamic_location_extraction_supports_requested_scripts():
     assert extract_location_from_message("What is the weather in London?") == "London"
     assert extract_location_from_message("Kya kal Ranchi me baarish hogi?") == "Ranchi"
@@ -76,6 +105,13 @@ def test_dynamic_location_extraction_supports_requested_scripts():
     assert detect_intent("will it rain tomorrow").date_reference == "tomorrow"
     assert detect_intent("কাল কলকাতায় বৃষ্টি হবে?").date_reference == "tomorrow"
     assert detect_intent("ଭୁବନେଶ୍ୱରରେ କାଲି ବର୍ଷା ହେବ କି?").date_reference == "tomorrow"
+
+    def test_forecast_time_phrases_are_not_locations():
+        from app.services.intent_service import extract_location_candidates
+
+        assert extract_location_candidates("Should I plan travel around the weather this week?") == []
+        assert extract_location_candidates("What is the weekend forecast?") == []
+        assert extract_location_candidates("Weekend forecast for Mumbai") == ["Mumbai"]
 
 
 @pytest.mark.asyncio

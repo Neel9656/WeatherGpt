@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AlertCard from '../components/AlertCard'
 import ChatWindow from '../components/ChatWindow'
 import { DailyCards, HourlyCards } from '../components/ForecastCard'
@@ -15,11 +15,44 @@ export default function Home() {
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [geoError, setGeoError] = useState('')
+  const geoAttemptedRef = useRef(false)
 
   function handleLocationSelect(nextLocation) {
     if (!nextLocation || !Number.isFinite(Number(nextLocation.latitude)) || !Number.isFinite(Number(nextLocation.longitude))) return
     setLocation({ ...nextLocation, latitude: Number(nextLocation.latitude), longitude: Number(nextLocation.longitude), name: nextLocation.name || 'Your GPS location' })
   }
+
+  useEffect(() => {
+    if (geoAttemptedRef.current || location) return
+    geoAttemptedRef.current = true
+
+    if (!navigator.geolocation) {
+      setGeoError('Location access is unavailable in this browser. You can still search manually.')
+      setLoading(false)
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords
+          const resolved = await resolveCoordinates(latitude, longitude)
+          handleLocationSelect(resolved)
+          setGeoError('')
+        } catch {
+          setGeoError('Location access could not be obtained. You can still search for a city manually.')
+          setLoading(false)
+        }
+      },
+      () => {
+        setGeoError('Location access could not be obtained. You can still search for a city manually.')
+        setLoading(false)
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 600000 }
+    )
+  }, [location])
+
   useEffect(() => {
     let cancelled = false
     if (!location) {
@@ -54,7 +87,7 @@ export default function Home() {
   const coordinates = location ? `${Number(location.latitude).toFixed(3)}, ${Number(location.longitude).toFixed(3)}` : 'Select a location to load weather'
   return <main className="app-shell">
     <header className="topbar"><a className="brand" href="/"><span className="brand-symbol">W</span><span>Weather<span className="brand-light">GPT</span></span></a><div className="topbar-status"><span className="status-dot" />Live data <span className="divider" />{alerts.length ? `${alerts.length} alerts` : 'No active alerts'}</div></header>
-    <section className="hero"><div className="hero-copy"><div className="kicker">Intelligence for changing skies</div><h1>Know the weather<br /><em>before it changes.</em></h1><p>Real-time conditions and forecasts, grounded in live meteorological data.</p></div><LocationSearch onSelect={handleLocationSelect} /></section>
+    <section className="hero"><div className="hero-copy"><div className="kicker">Intelligence for changing skies</div><h1>Know the weather<br /><em>before it changes.</em></h1><p>Real-time conditions and forecasts, grounded in live meteorological data.</p></div><LocationSearch onSelect={handleLocationSelect} geoError={geoError} /></section>
     <div className="content-grid"><div className="dashboard-column"><div className="location-heading"><div><span className="eyebrow">Your location</span><h2>{location?.name || 'Choose a location'}</h2><p>{location?.country || 'Search or use GPS'} · {coordinates}</p></div><span className="coordinates">⌖</span></div>
       {loading && <Loading />}{error && <div className="error-panel"><strong>Could not load weather</strong><p>{error}</p><button type="button" onClick={() => setLocation({ ...location })}>Try again</button></div>}{weather && !loading && <WeatherCard weather={weather} location={location} />}
       <section className="forecast-section"><div className="section-heading"><div><div className="eyebrow">Next 24 hours</div><h2>Hourly forecast</h2></div><span className="section-unit">°C</span></div>{loading ? <Loading label="Updating hourly forecast" /> : <HourlyCards forecast={hourly} />}</section>

@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { resolveCoordinates, searchLocations } from '../services/api'
+import { searchLocations } from '../services/api'
 
-export default function LocationSearch({ onSelect }) {
+export default function LocationSearch({ onSelect, geoError = '' }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [error, setError] = useState('')
-  const [geoLoading, setGeoLoading] = useState(false)
   const requestIdRef = useRef(0)
 
   useEffect(() => {
@@ -29,42 +28,6 @@ export default function LocationSearch({ onSelect }) {
     return () => clearTimeout(timer)
   }, [query])
 
-  function handleUseMyLocation() {
-    if (!navigator.geolocation) {
-      setError('Geolocation is not supported by this browser.')
-      return
-    }
-
-    setGeoLoading(true)
-    setError('')
-    const requestId = ++requestIdRef.current
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords
-        try {
-          const resolved = await resolveCoordinates(latitude, longitude)
-          if (requestId === requestIdRef.current) {
-            onSelect(resolved)
-            setQuery(resolved.name || 'Your GPS location')
-            setResults([])
-          }
-        } catch (error) {
-          if (requestId === requestIdRef.current) setError(error.message)
-        } finally {
-          if (requestId === requestIdRef.current) setGeoLoading(false)
-        }
-      },
-      () => {
-        if (requestId === requestIdRef.current) {
-          setGeoLoading(false)
-          setError('Location access was denied. Try a city search instead.')
-        }
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    )
-  }
-
   return (
     <div className="search-wrap">
       <label htmlFor="location-search">Search a location</label>
@@ -73,12 +36,7 @@ export default function LocationSearch({ onSelect }) {
         <input id="location-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="City or place" />
         <button type="button" className="search-button" onClick={() => results[0] && onSelect(results[0])} aria-label="Select first location">Search</button>
       </div>
-      <div className="search-actions">
-        <button type="button" className="geo-button" onClick={handleUseMyLocation} disabled={geoLoading}>
-          {geoLoading ? 'Locating…' : 'Use my location'}
-        </button>
-      </div>
-      {error && <p className="field-error">{error}</p>}
+      {(error || geoError) && <p className="field-error">{error || geoError}</p>}
       {results.length > 0 && (
         <div className="location-results">
           {results.map((result) => (

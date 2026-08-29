@@ -84,6 +84,15 @@ def test_multilingual_time_words_are_not_locations() -> None:
     assert detect_intent("আগামীকাল বৃষ্টি হবে কি?").date_reference == "tomorrow"
 
 
+def test_bengali_weather_question_is_not_treated_as_location() -> None:
+    message = "কালকে কেমন বৃষ্টি হবে?"
+    assert _extract_location(message) is None
+    intent = detect_intent(message)
+    assert intent.intent in {"precipitation", "general_weather", "rain_tomorrow", "forecast_tomorrow"}
+    assert intent.location is None
+    assert intent.date_reference == "tomorrow"
+
+
 def test_explicit_city_and_time_are_extracted_without_partial_matches() -> None:
     ranchi_today = detect_intent("What will be the weather of Ranchi today?")
     ranchi_tomorrow = detect_intent("What will be the weather of Ranchi tomorrow?")
